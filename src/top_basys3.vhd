@@ -104,11 +104,12 @@ architecture top_basys3_arch of top_basys3 is
     signal w_div_clk: STD_LOGIC := '0';
     signal w_A, w_B, w_ALU_result, w_ALU_MUX_result: STD_LOGIC_VECTOR (7 downto 0) := "00000000";
     signal w_ALU_flags: STD_LOGIC_VECTOR (3 downto 0) := "0000";
-    signal w_sign_2s: STD_LOGIC := '0';
-    signal w_sign: STD_LOGIC_VECTOR (6 downto 0) := "00000000";
+    signal w_sign_2s: STD_LOGIC_VECTOR (6 downto 0) := "0000000";
+    signal w_sign: STD_LOGIC_VECTOR (6 downto 0) := "0000000";
     signal w_D2, w_D1, w_D0, w_TDM_data, w_TDM_sel: STD_LOGIC_VECTOR (3 downto 0) := "0000";
-    signal w_seg_n: STD_LOGIC_VECTOR (6 downto 0) := "00000000";--might want to change to 1s default?
-    signal w_sevenseg_MUX_result: STD_LOGIC_VECTOR (6 downto 0) := "00000000";--might want to change to 1s default?
+    signal w_seg_n: STD_LOGIC_VECTOR (6 downto 0) := "0000000";--might want to change to 1s default?
+    signal w_sevenseg_MUX_result: STD_LOGIC_VECTOR (6 downto 0) := "0000000";--might want to change to 1s default?
+    signal w_store_A, w_store_B : STD_LOGIC_VECTOR (7 downto 0):= "00000000";
  
 
   
@@ -141,7 +142,7 @@ begin
       top_twos_comp: twos_comp
         port map(
             i_bin => w_ALU_MUX_result,
-            o_sign => w_sign_2s,--may need to change
+            o_sign => w_sign_2s(0),--may need to change
             o_hund => w_D2,
             o_tens => w_D1,
             o_ones => w_D0
@@ -167,10 +168,33 @@ begin
       
 	
 	-- CONCURRENT STATEMENTS ----------------------------
+	--REGISTERS
+	w_store_A <= sw(7 downto 0) when w_cycle = "0010" else
+	         w_store_A;
+	w_store_B <= sw(7 downto 0) when w_cycle = "0100" else
+	         w_store_A;
 	
-	--sevenseg MUX
-	--w_sign <= ( (not w_sign_2s) and "11111111" );
-	seg <= w_sevenseg_MUX_result;
+	--ALU MUX
+	with w_cycle select
+	w_ALU_MUX_result <= w_store_A when "0010",
+                        w_store_B when "0100",
+                        w_ALU_result when others;
+    --sevenseg MUX
+	
+	w_sign <= ( (not w_sign_2s) and "11111111" );
+	
+	with w_tdm_sel(3) select
+	w_sevenseg_MUX_result <= w_sign when '1', 
+	                         w_seg_n when others;
+	
+	-- anodes, display, and leds
+	  an(3 downto 0) <= w_TDM_sel;
+	  seg(6 downto 0) <= w_sevenseg_MUX_result;
+	  led(3 downto 0) <= w_cycle;
+	  led(15 downto 12) <= w_ALU_flags;
+	  led(11 downto 4) <= (others => '0'); --grounded 
+	
+	
 	
 	
 end top_basys3_arch;
